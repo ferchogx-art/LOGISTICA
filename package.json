@@ -1,0 +1,40 @@
+{
+  "name": "LOGISTICA",
+  "version": "1.0.0",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "vite build && electron-builder",
+    "preview": "vite preview",
+    "electron:dev": "electron ."
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.2",
+    "concurrently": "^9.0.1",
+    "electron": "^32.1.2",
+    "electron-builder": "^25.1.4",
+    "vite": "^5.4.10",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.ferchogx.logistica",
+    "productName": "LOGISTICA",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

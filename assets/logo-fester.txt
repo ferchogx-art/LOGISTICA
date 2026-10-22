@@ -1,0 +1,4 @@
+{
+  "name": "fester-paredes-logo",
+  "version": "1.0.0"
+}
