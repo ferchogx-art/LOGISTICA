@@ -1,12 +1,219 @@
-<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LOGISTICA</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+🔍 Historial y Filtros de Entregas
+Filtrar por Fecha
+Estatus Entrega
+Todos
+Pendiente de Entrega
+En Ruta
+Entregado
+
+
+Estatus Pago
+Todos
+Pendiente de Pago
+Pago Contra Entrega
+Pagado
+
+
+
+Limpiar Filtros
+
+
+ID Orden	Cliente	Fecha Ent.	Domicilio Destino	Estatus Entrega	Estatus Pago	Acciones
+
+// Bases de datos simuladas en LocalStorage
+let clientes = JSON.parse(localStorage.getItem('fester_clientes')) || [];
+let productos = JSON.parse(localStorage.getItem('fester_productos')) || [];
+let ordenes = JSON.parse(localStorage.getItem('fester_ordenes')) || [];
+// Estado de la orden en creación actual
+let carritoArticulos = [];
+// Inicializar fecha de hoy por defecto
+document.getElementById('orden-fecha').value = new Date().toISOString().split('T')[0];
+function registrarCliente() {
+const nombre = document.getElementById('cli-nombre').value.trim();
+const dirsText = document.getElementById('cli-direcciones').value.trim();
+if (!nombre || !dirsText) return alert("Por favor, llena los datos del cliente.");
+const direcciones = dirsText.split('\n').map(d => d.trim()).filter(d => d.length > 0);
+const nuevoCliente = { id: 'C' + Date.now().toString().slice(-4), nombre, direcciones };
+clientes.push(nuevoCliente);
+localStorage.setItem('fester_clientes', JSON.stringify(clientes));
+alert(Cliente registrado correctamente con ID: ${nuevoCliente.id});
+document.getElementById('cli-nombre').value = '';
+document.getElementById('cli-direcciones').value = '';
+}
+function registrarProducto() {
+const sku = document.getElementById('prod-sku').value.trim().toUpperCase();
+const desc = document.getElementById('prod-desc').value.trim();
+if (!sku || !desc) return alert("Llena el SKU y descripción del producto.");
+if (productos.some(p => p.sku === sku)) return alert("Este SKU ya existe en tu catálogo.");
+productos.push({ sku, desc });
+localStorage.setItem('fester_productos', JSON.stringify(productos));
+alert("Producto guardado en catálogo.");
+document.getElementById('prod-sku').value = '';
+document.getElementById('prod-desc').value = '';
+}
+function filtrarClientes() {
+const query = document.getElementById('buscar-cliente').value.toLowerCase().trim();
+const divSugerencias = document.getElementById('lista-sugerencias-clientes');
+divSugerencias.innerHTML = '';
+if (!query) {
+divSugerencias.classList.add('hidden');
+return;
+}
+const filtrados = clientes.filter(c => c.nombre.toLowerCase().includes(query) || c.id.toLowerCase().includes(query));
+if (filtrados.length === 0) {
+divSugerencias.innerHTML = 'No se encontraron clientes';
+divSugerencias.classList.remove('hidden');
+return;
+}
+filtrados.forEach(c => {
+const item = document.createElement('div');
+item.className = 'p-2 hover:bg-blue-50 cursor-pointer transition flex justify-between';
+item.innerHTML = <span><strong>${c.nombre}</strong></span> <span class="text-xs text-slate-400">ID: ${c.id}</span>;
+item.onclick = () => seleccionarClienteParaOrden(c);
+divSugerencias.appendChild(item);
+});
+divSugerencias.classList.remove('hidden');
+}
+function seleccionarClienteParaOrden(cliente) {
+document.getElementById('orden-cliente-nombre').innerText = cliente.nombre;
+document.getElementById('orden-cliente-id').value = cliente.id;
+const selectDir = document.getElementById('orden-cliente-direccion');
+selectDir.innerHTML = '';
+cliente.direcciones.forEach((dir, i) => {
+const opt = document.createElement('option');
+opt.value = dir;
+opt.innerText = Domicilio ${i+1}: ${dir};
+selectDir.appendChild(opt);
+});
+document.getElementById('buscar-cliente').value = '';
+document.getElementById('lista-sugerencias-clientes').classList.add('hidden');
+}
+function buscarSku() {
+const skuVal = document.getElementById('item-sku').value.trim().toUpperCase();
+const prod = productos.find(p => p.sku === skuVal);
+document.getElementById('item-desc').value = prod ? prod.desc : '';
+}
+function agregarArticuloAOrden() {
+const sku = document.getElementById('item-sku').value.trim().toUpperCase();
+const desc = document.getElementById('item-desc').value.trim();
+const cant = parseInt(document.getElementById('item-cant').value);
+if (!sku || !desc || cant < 1) return alert("Verifica que el SKU sea válido y agregues una cantidad.");
+const indexExistente = carritoArticulos.findIndex(item => item.sku === sku);
+if (indexExistente > -1) {
+carritoArticulos[indexExistente].cantidad += cant;
+} else {
+carritoArticulos.push({ sku, desc, cantidad: cant });
+}
+document.getElementById('item-sku').value = '';
+document.getElementById('item-desc').value = '';
+document.getElementById('item-cant').value = '1';
+renderizarArticulosOrden();
+}
+function eliminarArticuloCarrito(sku) {
+carritoArticulos = carritoArticulos.filter(item => item.sku !== sku);
+renderizarArticulosOrden();
+}
+function renderizarArticulosOrden() {
+const tbody = document.getElementById('tabla-articulos-orden');
+tbody.innerHTML = '';
+if (carritoArticulos.length === 0) {
+tbody.innerHTML = <tr><td colspan="4" class="p-4 text-center text-slate-400 italic">No hay productos agregados todavía.</td></tr>;
+return;
+}
+carritoArticulos.forEach(item => {
+const tr = document.createElement('tr');
+tr.className = 'border-b hover:bg-slate-50';
+tr.innerHTML = `
+${item.sku}
+${item.desc}
+${item.cantidad}
+✕
+`;
+tbody.appendChild(tr);
+});
+}
+function guardarOrden() {
+const clienteId = document.getElementById('orden-cliente-id').value;
+const clienteNombre = document.getElementById('orden-cliente-nombre').innerText;
+const direccion = document.getElementById('orden-cliente-direccion').value;
+const fecha = document.getElementById('orden-fecha').value;
+const estatusPago = document.getElementById('orden-estatus-pago').value;
+const estatusEntrega = document.getElementById('orden-estatus-entrega').value;
+if (!clienteId || clienteId === "Ninguno") return alert("Debes seleccionar un cliente registrado.");
+if (!direccion) return alert("El cliente debe tener al menos una dirección asignada.");
+if (!fecha) return alert("Selecciona una fecha de entrega.");
+if (carritoArticulos.length === 0) return alert("Debes agregar al menos 1 producto a la orden.");
+const nuevaOrden = {
+id: 'FST-' + Date.now().toString().slice(-5),
+clienteId,
+clienteNombre,
+direccion,
+fecha,
+articulos: [...carritoArticulos],
+estatusPago,
+estatusEntrega
+};
+ordenes.unshift(nuevaOrden); // Agregar al inicio para ver los más recientes
+localStorage.setItem('fester_ordenes', JSON.stringify(ordenes));
+alert(¡Orden guardada con éxito! Folio: ${nuevaOrden.id});
+// Resetear Formulario
+carritoArticulos = [];
+renderizarArticulosOrden();
+document.getElementById('orden-cliente-nombre').innerText = "Ninguno";
+document.getElementById('orden-cliente-id').value = "";
+document.getElementById('orden-cliente-direccion').innerHTML = "";
+renderizarHistorial();
+}
+function cambiarEstatus(idOrden, tipo, nuevoValor) {
+const index = ordenes.findIndex(o => o.id === idOrden);
+if (index > -1) {
+ordenes[index][tipo] = nuevoValor;
+localStorage.setItem('fester_ordenes', JSON.stringify(ordenes));
+renderizarHistorial();
+}
+}
+function limpiarFiltros() {
+document.getElementById('filtro-fecha').value = '';
+document.getElementById('filtro-entrega').value = 'TODOS';
+document.getElementById('filtro-pago').value = 'TODOS';
+renderizarHistorial();
+}
+function renderizarHistorial() {
+const tbody = document.getElementById('tabla-historial');
+tbody.innerHTML = '';
+const fFecha = document.getElementById('filtro-fecha').value;
+const fEntrega = document.getElementById('filtro-entrega').value;
+const fPago = document.getElementById('filtro-pago').value;
+let filtradas = ordenes;
+if (fFecha) filtradas = filtradas.filter(o => o.fecha === fFecha);
+if (fEntrega !== 'TODOS') filtradas = filtradas.filter(o => o.estatusEntrega === fEntrega);
+if (fPago !== 'TODOS') filtradas = filtradas.filter(o => o.estatusPago === fPago);
+if (filtradas.length === 0) {
+tbody.innerHTML = <tr><td colspan="7" class="p-6 text-center text-slate-400 italic bg-white">No se encontraron órdenes con los filtros seleccionados.</td></tr>;
+return;
+}
+filtradas.forEach(o => {
+const tr = document.createElement('tr');
+tr.className = "hover:bg-slate-50 bg-white transition";
+tr.innerHTML = `
+${o.id}
+${o.clienteNombre}
+${o.fecha}
+{o.direccion}
+`;
+tbody.appendChild(tr);
+});
+}
+function imprimirTicket(idOrden) {
+const orden = ordenes.find(o => o.id === idOrden);
+if (!orden) return;
+const ticketContainer = document.getElementById('ticket-impresion');
+let articulosTxt = '';
+orden.articulos.forEach(art => {
+articulosTxt +=  <div style="display: flex; justify-content: space-between; margin-bottom: 2px;"> <div style="width: 75%; text-align: left;">* ${art.desc}<br><small style="color:#555">SKU: ${art.sku}</small></div> <div style="width: 25%; text-align: right; font-weight: bold;">x${art.cantidad}</div> </div>;
+});
+ticketContainer.innerHTML = <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 8px;"> <div style="font-size: 16px; font-weight: bold; letter-spacing: 1px; color: #d32f2f; margin-bottom: -2px;">Fester</div> <div style="font-size: 12px; font-weight: bold; letter-spacing: 2px;">PAREDES</div> <div style="font-size: 9px; margin-top: 3px;">CONTROL DE LOGÍSTICA Y ENTREGA</div> </div> <div style="margin-bottom: 6px;"> <strong>FOLIO:</strong> ${orden.id}<br> <strong>FECHA ENT:</strong> ${orden.fecha}<br> <strong>CLIENTE:</strong> ${orden.clienteNombre} (${orden.clienteId}) </div> <div style="border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 6px;"> <strong>DESTINO:</strong><br> <span style="font-size: 10px;">${orden.direccion}</span> </div> <div style="border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 6px;"> <div style="font-weight: bold; text-align: center; font-size: 10px; margin-bottom: 4px;">PRODUCTOS</div> ${articulosTxt} </div> <div style="text-align: left; font-size: 10px;"> <strong>ESTATUS PAGO:</strong> ${orden.estatusPago.toUpperCase()}<br> <strong>ESTATUS ENTREG:</strong> ${orden.estatusEntrega.toUpperCase()} </div> <div style="text-align: center; margin-top: 15px; font-size: 9px; border-top: 1px dashed #000; padding-top: 4px;"> [ Comprobante Operativo Interno ] </div>;
+window.print();
+}
+// Renderizado inicial al encender la página
+renderizarHistorial();
